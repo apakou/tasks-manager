@@ -27,9 +27,10 @@ In today's fast-paced world, effective task management is crucial for success. O
 
 ### Backend & API
 - **Next.js API Routes** - Serverless API endpoints
+- **Supabase** - Backend-as-a-Service with PostgreSQL database
+- **Supabase Auth** - User authentication and authorization
 - **Zod** - TypeScript-first schema validation library
-- **JWT** - JSON Web Tokens for secure authentication
-- **PostgreSQL** - Robust, scalable relational database (production ready)
+- **PostgreSQL** - Robust, scalable relational database (via Supabase)
 
 ### Development & Deployment
 - **Node.js 18+** - JavaScript runtime environment
@@ -88,7 +89,7 @@ In today's fast-paced world, effective task management is crucial for success. O
 
 - Node.js 18+ 
 - npm, yarn, or pnpm
-- PostgreSQL database (optional for development)
+- Supabase account and project
 
 ### Installation
 
@@ -103,28 +104,43 @@ In today's fast-paced world, effective task management is crucial for success. O
    npm install
    ```
 
-3. Set up environment variables:
+3. Set up Supabase:
+   - Create a new project at [supabase.com](https://supabase.com)
+   - Go to Settings > API to get your project URL and anon key
+   - Set up authentication providers if needed
+
+4. Set up environment variables:
    ```bash
    cp .env.example .env.local
    ```
-
-4. (Optional) Set up the database:
-   ```sql
-   -- Run the SQL commands in lib/db/schema.sql
+   
+   Update `.env.local` with your Supabase credentials:
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
    ```
 
-5. Start the development server:
+5. (Optional) Set up the database schema:
+   - In your Supabase dashboard, go to the SQL Editor
+   - Run the commands in `lib/db/schema.sql` to create the tables
+   - Or use the built-in auth system without custom tables initially
+
+6. Start the development server:
    ```bash
    npm run dev
    ```
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser.
+7. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### Demo Login
+### Authentication Setup
 
-For development/testing, you can use:
-- **Email**: demo@example.com
-- **Password**: demo123
+The app uses Supabase Auth with email/password authentication. Users need to verify their email before they can sign in.
+
+**Email Verification:**
+- After signup, users receive a verification email
+- The verification link redirects to `/auth/callback`
+- Users are then redirected to the dashboard upon successful verification
 
 ## 🛣️ Roadmap
 
