@@ -16,7 +16,7 @@ export const createTaskSchema = z.object({
     .max(50, "Category must be less than 50 characters")
     .optional(),
   dueDate: z.date().optional(),
-  tags: z.array(z.string()).optional().default([]),
+  tags: z.array(z.string()).default([]),
 });
 
 export const updateTaskSchema = createTaskSchema.extend({

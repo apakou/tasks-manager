@@ -1,22 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTasks } from "@/hooks/use-tasks";
 import { Task } from "@/types";
 import { TaskCard } from "@/components/tasks/task-card";
 import { TaskForm } from "@/components/forms/task-form";
 import { PageHeader, PageHeaderHeading, PageHeaderActions } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Plus, AlertCircle } from "lucide-react";
 import { CreateTaskInput } from "@/lib/validations/schemas";
+import { taskService } from "@/lib/services/task-service";
+import { useAuth } from "@/lib/auth/auth-context";
 
 export default function DashboardPage() {
-  const { tasks, loading, createTask, updateTask, deleteTask, toggleTaskCompletion } = useTasks();
+  const { user } = useAuth();
+  const { tasks, loading, error, createTask, updateTask, deleteTask, toggleTaskCompletion } = useTasks();
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
+  const [stats, setStats] = useState({
+    total: 0,
+    completed: 0,
+    pending: 0,
+    overdue: 0,
+    today: 0,
+  });
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  // Fetch task stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!user) return;
+      
+      try {
+        setLoadingStats(true);
+        const taskStats = await taskService.getTaskStats();
+        setStats(taskStats);
+      } catch (error) {
+        console.error('Failed to fetch task stats:', error);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    fetchStats();
+  }, [user, tasks]); // Refetch stats when tasks change
 
   const handleCreateTask = async (data: CreateTaskInput) => {
-    await createTask(data as any);
+    await createTask(data);
   };
 
   const handleEditTask = (task: Task) => {
@@ -32,12 +63,18 @@ export default function DashboardPage() {
   // Get today's tasks
   const today = new Date();
   const todaysTasks = tasks.filter(task => {
-    const taskDate = task.dueDate ? new Date(task.dueDate) : null;
-    return taskDate && taskDate.toDateString() === today.toDateString();
+    if (!task.dueDate) return false;
+    const taskDate = new Date(task.dueDate);
+    return taskDate.toDateString() === today.toDateString();
   });
 
-  const completedTasks = tasks.filter(task => task.completed).length;
-  const pendingTasks = tasks.filter(task => !task.completed).length;
+  if (loading && tasks.length === 0) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -56,19 +93,44 @@ export default function DashboardPage() {
         </PageHeaderActions>
       </PageHeader>
 
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-white p-6 rounded-lg border">
-          <div className="text-2xl font-bold text-blue-600">{tasks.length}</div>
+          <div className="text-2xl font-bold text-blue-600">
+            {loadingStats ? "..." : stats.total}
+          </div>
           <p className="text-muted-foreground">Total Tasks</p>
         </div>
         <div className="bg-white p-6 rounded-lg border">
-          <div className="text-2xl font-bold text-green-600">{completedTasks}</div>
+          <div className="text-2xl font-bold text-green-600">
+            {loadingStats ? "..." : stats.completed}
+          </div>
           <p className="text-muted-foreground">Completed</p>
         </div>
         <div className="bg-white p-6 rounded-lg border">
-          <div className="text-2xl font-bold text-orange-600">{pendingTasks}</div>
+          <div className="text-2xl font-bold text-orange-600">
+            {loadingStats ? "..." : stats.pending}
+          </div>
           <p className="text-muted-foreground">Pending</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg border">
+          <div className="text-2xl font-bold text-red-600">
+            {loadingStats ? "..." : stats.overdue}
+          </div>
+          <p className="text-muted-foreground">Overdue</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg border">
+          <div className="text-2xl font-bold text-purple-600">
+            {loadingStats ? "..." : stats.today}
+          </div>
+          <p className="text-muted-foreground">Due Today</p>
         </div>
       </div>
 

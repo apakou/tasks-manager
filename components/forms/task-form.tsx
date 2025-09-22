@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Task, TaskPriority } from "@/types";
-import { createTaskSchema, CreateTaskInput } from "@/lib/validations/schemas";
+import { Task, TaskPriority, CreateTaskInput } from "@/types";
+import { createTaskSchema } from "@/lib/validations/schemas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,14 +24,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -49,25 +41,59 @@ interface TaskFormProps {
   onSubmit: (data: CreateTaskInput) => Promise<void>;
 }
 
+type FormData = {
+  title: string;
+  description?: string;
+  priority: TaskPriority;
+  category?: string;
+  dueDate?: Date;
+  tags?: string[];
+};
+
 export function TaskForm({ task, open, onOpenChange, onSubmit }: TaskFormProps) {
   const [loading, setLoading] = useState(false);
 
-  const form = useForm<CreateTaskInput>({
+  const form = useForm<FormData>({
     resolver: zodResolver(createTaskSchema),
     defaultValues: {
-      title: task?.title || "",
-      description: task?.description || "",
-      priority: task?.priority || TaskPriority.MEDIUM,
-      category: task?.category || "",
-      dueDate: task?.dueDate,
-      tags: task?.tags || [],
+      title: "",
+      description: "",
+      priority: TaskPriority.MEDIUM,
+      category: "",
+      dueDate: undefined,
+      tags: [],
     },
   });
 
-  const handleSubmit = async (data: CreateTaskInput) => {
+  // Reset form when task changes or dialog opens
+  useEffect(() => {
+    console.log('📋 TaskForm useEffect triggered with:', { task, open });
+    if (open) {
+      form.reset({
+        title: task?.title || "",
+        description: task?.description || "",
+        priority: task?.priority || TaskPriority.MEDIUM,
+        category: task?.category || "",
+        dueDate: task?.dueDate,
+        tags: task?.tags || [],
+      });
+    }
+  }, [task, open, form]);
+
+  const handleSubmit = async (data: FormData) => {
+    console.log('📋 TaskForm handleSubmit called with:', data, 'task prop:', task);
     setLoading(true);
     try {
-      await onSubmit(data);
+      const taskData: CreateTaskInput = {
+        title: data.title,
+        description: data.description || undefined,
+        priority: data.priority,
+        category: data.category || undefined,
+        dueDate: data.dueDate,
+        tags: data.tags || [],
+      };
+      console.log('📋 Calling onSubmit with taskData:', taskData);
+      await onSubmit(taskData);
       form.reset();
       onOpenChange(false);
     } catch (error) {
@@ -87,130 +113,122 @@ export function TaskForm({ task, open, onOpenChange, onSubmit }: TaskFormProps) 
           </DialogDescription>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Title</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter task title" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <div>
+            <Label htmlFor="title">Title</Label>
+            <Input
+              id="title"
+              placeholder="Enter task title"
+              {...form.register("title")}
             />
+            {form.formState.errors.title && (
+              <p className="text-sm text-red-600 mt-1">
+                {form.formState.errors.title.message}
+              </p>
+            )}
+          </div>
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Enter task description (optional)"
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+          <div>
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              placeholder="Enter task description (optional)"
+              className="resize-none"
+              {...form.register("description")}
             />
+            {form.formState.errors.description && (
+              <p className="text-sm text-red-600 mt-1">
+                {form.formState.errors.description.message}
+              </p>
+            )}
+          </div>
 
-            <FormField
-              control={form.control}
-              name="priority"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Priority</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select priority" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={TaskPriority.LOW}>Low</SelectItem>
-                      <SelectItem value={TaskPriority.MEDIUM}>Medium</SelectItem>
-                      <SelectItem value={TaskPriority.HIGH}>High</SelectItem>
-                      <SelectItem value={TaskPriority.URGENT}>Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+          <div>
+            <Label htmlFor="priority">Priority</Label>
+            <Select
+              value={form.watch("priority")}
+              onValueChange={(value: TaskPriority) =>
+                form.setValue("priority", value)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TaskPriority.LOW}>Low</SelectItem>
+                <SelectItem value={TaskPriority.MEDIUM}>Medium</SelectItem>
+                <SelectItem value={TaskPriority.HIGH}>High</SelectItem>
+                <SelectItem value={TaskPriority.URGENT}>Urgent</SelectItem>
+              </SelectContent>
+            </Select>
+            {form.formState.errors.priority && (
+              <p className="text-sm text-red-600 mt-1">
+                {form.formState.errors.priority.message}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="category">Category</Label>
+            <Input
+              id="category"
+              placeholder="Enter category (optional)"
+              {...form.register("category")}
             />
+            {form.formState.errors.category && (
+              <p className="text-sm text-red-600 mt-1">
+                {form.formState.errors.category.message}
+              </p>
+            )}
+          </div>
 
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter category (optional)" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <div>
+            <Label>Due Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !form.watch("dueDate") && "text-muted-foreground"
+                  )}
+                >
+                  {form.watch("dueDate") ? (
+                    format(form.watch("dueDate")!, "PPP")
+                  ) : (
+                    <span>Pick a date</span>
+                  )}
+                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={form.watch("dueDate")}
+                  onSelect={(date) => form.setValue("dueDate", date)}
+                  disabled={(date) =>
+                    date < new Date(new Date().setHours(0, 0, 0, 0))
+                  }
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            {form.formState.errors.dueDate && (
+              <p className="text-sm text-red-600 mt-1">
+                {form.formState.errors.dueDate.message}
+              </p>
+            )}
+          </div>
 
-            <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Due Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, "PPP")
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        disabled={(date) =>
-                          date < new Date(new Date().setHours(0, 0, 0, 0))
-                        }
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : task ? "Update Task" : "Create Task"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Saving..." : task ? "Update Task" : "Create Task"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
